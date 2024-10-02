@@ -111,29 +111,24 @@ class AVLTree(object):
            return node.value if node is not None else None
         else:
             return None
-    
-    def __searchData(self, key:any, node:Node)->Node:
-        '''
-        Private method that performs a recursive search in AVL Tree to find the node 
-        whose key is equal to "key" argument.
-        
-        Arguments
-        ------------
-        key (any): the key value to be searched in AVL Tree
-        node (Node): the node to be used as reference to start the search 
-        Returns
-        ----------
-        None if the key was not found or AVL Tree is empty. Otherwise, returns
-        the object/value stored at the node corresponding the key.
-        '''
-        if ( key == node.value):
-            return node
-        elif ( key < node.value and node.left != None):
-            return self.__searchData( key, node.left())
-        elif ( key > node.value and node.right != None):
-            return self.__searchData( key, node.right)
-        else:
+
+    def __searchData(self, key: any, node: Node) -> Node:
+        """
+        Método privado que realiza a busca recursiva na AVL Tree para encontrar o nó
+        cujo valor seja igual à chave (key).
+        """
+        if node is None:
             return None
+        
+        # Comparação usando o 'id' do valor do nó
+        if key == node.value['id']:
+            return node
+        elif key < node.value['id'] and node.left is not None:
+            return self.__searchData(key, node.left)
+        elif key > node.value['id'] and node.right is not None:
+            return self.__searchData(key, node.right)
+        
+        return None
 
     def __len__(self)->int:
         '''Method that returns the number of nodes of this AVL tree
@@ -167,47 +162,41 @@ class AVLTree(object):
         else:
             self.__root = self.__insert(self.__root, key)
   
-    def __insert(self, root:Node, key:any):
-        # Step 1 - Performs a BST recursion to add the node
-        if not root: 
-            return Node(key) 
-        elif key < root.value: 
-            root.left = self.__insert(root.left, key) 
-        else: 
-            root.right = self.__insert(root.right, key) 
-  
-        # Step 2 
-        # The current node must be one of the ancestors of the newly inserted node.
-        # Update the height of ancestor node
-        root.height = 1 + max(self.__getHeight(root.left), 
-                              self.__getHeight(root.right)) 
-  
-        # Step 3 - Computes the balance factor 
-        # (left subtree height – right subtree height) of the current node
-        balance = self.__getBalance(root) 
-  
-        # Step 4 - Checks if the node is unbalanced
-        # Then, one of the following actions will be performed:
-
-        # CASE 1 - Right rotation
-        if balance > 1 and key < root.left.value: 
-            return self.__rightRotate(root) 
-  
-        # CASE 2 - Left rotation
-        if balance < -1 and key > root.right.value: 
-            return self.__leftRotate(root) 
-  
-        # CASE 3 - Double rotation: Left-> Right 
-        if balance > 1 and key > root.left.value: 
-            root.left = self.__leftRotate(root.left) 
-            return self.__rightRotate(root) 
-  
-        # CASE 4 - Double rotation: Right-> Left 
-        if balance < -1 and key < root.right.value: 
-            root.right = self.__rightRotate(root.right) 
-            return self.__leftRotate(root) 
-  
-        return root 
+    def __insert(self, root: Node, task: dict):
+        """
+        Método interno de inserção que compara os ids das tarefas.
+        """
+        key = task['id']  # Comparar usando o ID da tarefa
+        
+        if not root:
+            return Node(task)  # Insere a tarefa como um nó da AVL
+        
+        # Comparação usando o 'id' da tarefa
+        if key < root.value['id']:  # Usamos o ID da tarefa para comparação
+            root.left = self.__insert(root.left, task)
+        else:
+            root.right = self.__insert(root.right, task)
+        
+        # Atualiza a altura e balanceia a árvore como antes
+        root.height = 1 + max(self.__getHeight(root.left), self.__getHeight(root.right))
+        balance = self.__getBalance(root)
+        
+        # Realiza rotações, se necessário
+        if balance > 1 and key < root.left.value['id']:
+            return self.__rightRotate(root)
+        
+        if balance < -1 and key > root.right.value['id']:
+            return self.__leftRotate(root)
+        
+        if balance > 1 and key > root.left.value['id']:
+            root.left = self.__leftRotate(root.left)
+            return self.__rightRotate(root)
+        
+        if balance < -1 and key < root.right.value['id']:
+            root.right = self.__rightRotate(root.right)
+            return self.__leftRotate(root)
+        
+        return root
   
     def __leftRotate(self, p:Node)->Node: 
         """
@@ -322,19 +311,16 @@ class AVLTree(object):
         self.__preorder(root.left) 
         self.__preorder(root.right) 
 
-    def inorder(self):
-        '''
-        Perform a in-order traversal in AVL Tree
-        '''
-        self.__inorder(self.__root)
+    def inorder(self, visit_callback):
+        """ Faz a travessia in-order da árvore e executa o callback para cada nó visitado. """
+        self.__inorder(self.__root, visit_callback)
 
-    def __inorder(self, root): 
-        if not root: 
+    def __inorder(self, root, visit_callback):
+        if not root:
             return
-  
-        self.__inorder(root.left) 
-        print("{0} ".format(root.value), end="") 
-        self.__inorder(root.right) 
+        self.__inorder(root.left, visit_callback)
+        visit_callback(root)  # Executa o callback passando o nó atual
+        self.__inorder(root.right, visit_callback)
 
     def posorder(self):
         '''
@@ -361,73 +347,58 @@ class AVLTree(object):
         if(self.__root is not None):
             self.__root = self.__delete(self.__root, key)
         
-
-    def __delete(self, root:Node, key:object)->Node: 
+    def __delete(self, root: Node, key: any) -> Node:
         """
-        Recursive function to delete a node with given key from subtree
-        with given root.
-
-        Retorno
-        --------------
-        It returns root of the modified subtree.
+        Função recursiva para deletar um nó com a chave fornecida (ID da tarefa) da subárvore
+        com a raiz fornecida.
         """
-        # Step 1 - Perform standard BST delete 
-        if not root: 
-            return root   
-        elif key < root.value: 
-            root.left = self.__delete(root.left, key)   
-        elif key > root.value: 
-            root.right = self.__delete(root.right, key)   
-        else: 
-            if root.left is None: 
-                temp = root.right 
+        if not root:
+            return root
+        
+        # Comparação usando o 'id' do valor do nó
+        if key < root.value['id']:
+            root.left = self.__delete(root.left, key)
+        elif key > root.value['id']:
+            root.right = self.__delete(root.right, key)
+        else:
+            # Nó encontrado. Proceder com a remoção.
+            if root.left is None:
+                temp = root.right
                 root = None
-                return temp 
-  
-            elif root.right is None: 
-                temp = root.left 
+                return temp
+            elif root.right is None:
+                temp = root.left
                 root = None
-                return temp 
-  
-            temp = self.__getMinValueNode(root.right) 
-            root.value = temp.value 
-            root.right = self.__delete(root.right, 
-                                      temp.value) 
-  
-        # If the tree has only one node, 
-        # simply return it 
-        if root is None: 
-            return root 
-  
-        # Step 2 - Update the height of the  
-        # ancestor node 
-        root.height = 1 + max(self.__getHeight(root.left), 
-                            self.__getHeight(root.right)) 
-  
-        # Step 3 - Get the balance factor 
-        balance = self.__getBalance(root) 
-  
-        # Step 4 - If the node is unbalanced,  
-        # then try out the 4 cases 
-        # Case 1 - Left Left 
-        if balance > 1 and self.__getBalance(root.left) >= 0: 
-            return self.__rightRotate(root) 
-  
-        # Case 2 - Right Right 
-        if balance < -1 and self.__getBalance(root.right) <= 0: 
-            return self.__leftRotate(root) 
-  
-        # Case 3 - Left Right 
-        if balance > 1 and self.__getBalance(root.left) < 0: 
-            root.left = self.__leftRotate(root.left) 
-            return self.__rightRotate(root) 
-  
-        # Case 4 - Right Left 
-        if balance < -1 and self.__getBalance(root.right) > 0: 
-            root.right = self.__rightRotate(root.right) 
-            return self.__leftRotate(root) 
-  
-        return root  
+                return temp
+            
+            temp = self.__getMinValueNode(root.right)
+            root.value = temp.value
+            root.right = self.__delete(root.right, temp.value['id'])
+        
+        if root is None:
+            return root
+        
+        # Atualiza a altura do nó atual
+        root.height = 1 + max(self.__getHeight(root.left), self.__getHeight(root.right))
+        
+        # Obtém o fator de balanceamento e realiza rotações, se necessário
+        balance = self.__getBalance(root)
+        
+        if balance > 1 and self.__getBalance(root.left) >= 0:
+            return self.__rightRotate(root)
+        
+        if balance < -1 and self.__getBalance(root.right) <= 0:
+            return self.__leftRotate(root)
+        
+        if balance > 1 and self.__getBalance(root.left) < 0:
+            root.left = self.__leftRotate(root.left)
+            return self.__rightRotate(root)
+        
+        if balance < -1 and self.__getBalance(root.right) > 0:
+            root.right = self.__rightRotate(root.right)
+            return self.__leftRotate(root)
+        
+        return root
     
     def __str__(self):
         '''

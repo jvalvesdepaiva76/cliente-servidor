@@ -13,12 +13,16 @@ class TaskClient:
     
     def interact(self, client_socket):
         while True:
-            command = input("Digite um comando para o servidor: ")
-            if command.lower() == 'exit':
+            try:
+                command = input("Digite um comando para o servidor: ")
+                if command.lower() == 'exit':
+                    break  # Se o cliente digitar "exit", a conexão será fechada
+                client_socket.sendall(command.encode())
+                response = client_socket.recv(1024)
+                print("Resposta do servidor:", response.decode())
+            except BrokenPipeError:
+                print("Erro: Conexão com o servidor perdida.")
                 break
-            client_socket.sendall(command.encode())
-            response = client_socket.recv(1024)
-            print("Resposta do servidor:", response.decode())
 
 if __name__ == '__main__':
     client = TaskClient()
