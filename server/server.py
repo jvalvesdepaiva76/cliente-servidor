@@ -63,24 +63,17 @@ class TaskServer:
 
     def process_command(self, command: str) -> str:
         """
-        Processa os comandos enviados pelo cliente e retorna uma resposta apropriada.
-
+        Processa os comandos recebidos do cliente.
         Comandos disponíveis:
-        - ADD <descrição> [data de vencimento (opcional)]: Adiciona uma nova tarefa com data opcional.
-        - LIST: Lista apenas as tarefas não concluídas.
-        - LIST_DETAILED: Lista as tarefas não concluídas com subtarefas (se houver).
-        - TASK_HISTORY: Lista todas as tarefas (concluídas e não concluídas).
-        - REMOVE <id>: Remove uma tarefa pelo ID.
-        - SEARCH <id>: Busca uma tarefa pelo ID.
-        - COMPLETE <id>: Marca uma tarefa como concluída.
-        - ADD_SUBTASK <id> <descrição>: Adiciona uma subtarefa a uma tarefa existente.
-        - LIST_SUBTASKS <id>: Lista todas as subtarefas de uma tarefa.
-
-        Args:
-        command (str): O comando enviado pelo cliente.
-
-        Returns:
-        str: A resposta apropriada para o comando.
+        - ADD <descrição> [data de vencimento (opcional)] [prioridade (opcional)]: Adiciona uma nova tarefa com uma data e/ou prioridade.
+        - LIST: Lista apenas as tarefas não concluídas, com data de vencimento (se houver).
+        - LIST_DETAILED: Lista as tarefas não concluídas com suas subtarefas (se houver).
+        - TASK_HISTORY: Lista todas as tarefas (concluídas e não concluídas)
+        - REMOVE <id>: Remove uma tarefa pelo ID
+        - SEARCH <id>: Busca uma tarefa pelo ID
+        - COMPLETE <id>: Marca uma tarefa como concluída
+        - ADD_SUBTASK <id> <descrição>: Adiciona uma subtarefa a uma tarefa existente
+        - LIST_SUBTASKS <id>: Lista todas as subtarefas de uma tarefa
         """
         parts = command.split()
 
@@ -93,18 +86,27 @@ class TaskServer:
             if len(parts) < 2:
                 return "Erro: descrição da tarefa não fornecida."
             
-            description = ' '.join(parts[1:-1])
-            due_date = parts[-1] if self.is_valid_date(parts[-1]) else None
+            description = ' '.join(parts[1:])  # Assume inicialmente que tudo é descrição
+            due_date = None
             priority = None
 
+            # Verifica se o último item é prioridade
             if parts[-1].upper() in ["ALTA", "MEDIA", "BAIXA"]:
                 priority = parts[-1].upper()
-                description = ' '.join(parts[1:-1])
+                description = ' '.join(parts[1:-1])  # Remove a prioridade da descrição
 
-            elif due_date:
-                description = ' '.join(parts[1:-1])
-            else:
-                description = ' '.join(parts[1:])
+            # Verifica se o penúltimo item é uma data válida, considerando também a presença de prioridade
+            if len(parts) > 2 and self.is_valid_date(parts[-2]):
+                due_date = parts[-2]
+                if priority:
+                    description = ' '.join(parts[1:-2])  # Remove data e prioridade da descrição
+                else:
+                    description = ' '.join(parts[1:-1])  # Remove apenas a data
+
+            # Verifica se há apenas uma data (e não prioridade)
+            elif self.is_valid_date(parts[-1]):
+                due_date = parts[-1]
+                description = ' '.join(parts[1:-1])  # Remove a data da descrição
 
             return self.add_task(description, due_date, priority)
 
@@ -164,6 +166,7 @@ class TaskServer:
                 return "Erro: ID da tarefa deve ser um número."
 
         return "Comando desconhecido."
+
     
     def is_valid_date(self, date_str: str) -> bool:
         """
@@ -238,10 +241,28 @@ class TaskServer:
             return f"Tarefa {task_id} não encontrada."
 
     def search_task(self, task_id: int) -> str:
-        """Busca uma tarefa pelo ID."""
+        """
+        Busca uma tarefa pelo ID e exibe suas subtarefas (se houver).
+
+        Args:
+        task_id (int): O ID da tarefa a ser buscada.
+
+        Returns:
+        str: Detalhes da tarefa e suas subtarefas, ou uma mensagem de erro se a tarefa não for encontrada.
+        """
         task = self.task_tree.search(task_id)
         if task:
-            return f"ID: {task['id']}, Descrição: {task['description']}, Concluída: {task['completed']}"
+            result = f"ID: {task['id']}, Descrição: {task['description']}, Concluída: {task['completed']}, Vencimento: {task['due_date'] or 'Sem vencimento'}, Prioridade: {task['priority']}\n"
+            
+            # Verifica se a tarefa possui subtarefas
+            if task['subtasks']:
+                result += "Subtarefas:\n"
+                for subtask in task['subtasks']:
+                    result += f"  - Descrição: {subtask['description']}, Concluída: {subtask['completed']}\n"
+            else:
+                result += "Nenhuma subtarefa encontrada.\n"
+            
+            return result
         return f"Tarefa {task_id} não encontrada."
     
     def complete_task(self, task_id: int) -> str:
