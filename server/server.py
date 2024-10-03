@@ -1,4 +1,3 @@
-# File: server/server.py
 import socket
 import threading
 from ds.avl_tree import AVLTree
