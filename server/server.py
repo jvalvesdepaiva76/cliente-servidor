@@ -66,6 +66,7 @@ class TaskServer:
         Processa os comandos recebidos do cliente.
         Comandos disponíveis:
         - ADD <descrição> [data de vencimento (opcional)] [prioridade (opcional)]: Adiciona uma nova tarefa com uma data e/ou prioridade.
+        - EDIT <id> [nova descrição] [nova data (opcional)] [nova prioridade (opcional)]
         - LIST: Lista apenas as tarefas não concluídas, com data de vencimento (se houver).
         - LIST_DETAILED: Lista as tarefas não concluídas com suas subtarefas (se houver).
         - TASK_HISTORY: Lista todas as tarefas (concluídas e não concluídas)
@@ -162,6 +163,35 @@ class TaskServer:
             try:
                 task_id = int(parts[1])
                 return self.complete_task(task_id)
+            except ValueError:
+                return "Erro: ID da tarefa deve ser um número."
+            
+        elif action == "EDIT":
+            if len(parts) < 2:
+                return "Erro: ID da tarefa não fornecido."
+            try:
+                task_id = int(parts[1])
+
+                # Inicializa os valores como None
+                description = None
+                due_date = None
+                priority = None
+
+                # Se tiver mais que 2 partes, verificar descrição, data ou prioridade
+                for i in range(2, len(parts)):
+                    if self.is_valid_date(parts[i]):
+                        due_date = parts[i]
+                    elif parts[i].upper() in ["ALTA", "MEDIA", "BAIXA"]:
+                        priority = parts[i].upper()
+                    else:
+                        description = (description + " " + parts[i]) if description else parts[i]
+
+                # Verifica se pelo menos um campo foi fornecido para editar
+                if not description and not due_date and not priority:
+                    return "Erro: Nenhum campo de edição fornecido."
+
+                return self.edit_task(task_id, description, due_date, priority)
+
             except ValueError:
                 return "Erro: ID da tarefa deve ser um número."
 
@@ -325,6 +355,31 @@ class TaskServer:
         
         task_list = "\n".join([f"ID: {task['id']}, Descrição: {task['description']}, Concluída: {task['completed']}" for task in tasks])
         return f"Histórico de Tarefas:\n{task_list}"
+    
+    def edit_task(self, task_id: int, description: str = None, due_date: str = None, priority: str = None) -> str:
+        """
+        Edita os detalhes de uma tarefa existente, permitindo modificar a descrição, data de vencimento e prioridade.
+
+        Args:
+        task_id (int): O ID da tarefa que será editada.
+        description (str, optional): A nova descrição da tarefa. Se None, a descrição não será alterada.
+        due_date (str, optional): A nova data de vencimento da tarefa. Se None, a data de vencimento não será alterada.
+        priority (str, optional): A nova prioridade da tarefa ('ALTA', 'MEDIA', 'BAIXA'). Se None, a prioridade não será alterada.
+
+        Returns:
+        str: Confirmação da edição da tarefa ou mensagem de erro caso a tarefa não seja encontrada.
+        """
+        with self.lock:
+            task = self.task_tree.search(task_id)
+            if task:
+                if description:
+                    task['description'] = description
+                if due_date and self.is_valid_date(due_date):
+                    task['due_date'] = due_date
+                if priority and priority.upper() in ["ALTA", "MEDIA", "BAIXA"]:
+                    task['priority'] = priority.upper()
+                return f"Tarefa {task_id} atualizada com sucesso."
+            return f"Tarefa {task_id} não encontrada."
 
 if __name__ == '__main__':
     server = TaskServer()
