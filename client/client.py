@@ -1,4 +1,3 @@
-# File: client/client.py
 import socket
 from ds.queue import Fila, FilaError
 
